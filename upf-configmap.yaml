@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: upf1-configmap
+  labels:
+    app: open5gs
+    nf: upf
+    name: upf1
+data:
+  upfcfg.yaml: |
+    logger:
+        file: /open5gs/install/var/log/open5gs/upf.log
+        level: info
+
+    global:
+      max:
+        ue: 1024
+
+    upf:
+      pfcp:
+        server:
+          - dev: n4
+      gtpu:
+        server:
+          - dev: n3
+
+      dnn_list:
+        - dnn: internet
+          dev: ogstun
+          mtu: 1400
+          addr: 10.41.0.1/16
+          qos_profile:
+            5qi: 9
+            arp:
+              priority_level: 15
+              pre_emption_capability: NOT_PREEMPT
+              pre_emption_vulnerability: PREEMPTABLE
+
+        - dnn: volte
+          dev: ogstun_volte
+          mtu: 1400
+          addr: 10.42.0.1/16
+          qos_profile:
+            5qi: 1
+            arp:
+              priority_level: 2
+              pre_emption_capability: PREEMPT
+              pre_emption_vulnerability: NOT_PREEMPTABLE
+
+        - dnn: video
+          dev: ogstun_video
+          mtu: 1400
+          addr: 10.43.0.1/16
+          qos_profile:
+            5qi: 4
+            arp:
+              priority_level: 5
+              pre_emption_capability: PREEMPT
+              pre_emption_vulnerability: PREEMPTABLE
+
+        - dnn: gaming
+          dev: ogstun_gaming
+          mtu: 1400
+          addr: 10.44.0.1/16
+          qos_profile:
+            5qi: 2
+            arp:
+              priority_level: 3
+              pre_emption_capability: PREEMPT
+              pre_emption_vulnerability: PREEMPTABLE
+
+        - dnn: ims
+          dev: ogstun_ims
+          mtu: 1400
+          addr: 10.45.0.1/16
+          qos_profile:
+            5qi: 5
+            arp:
+              priority_level: 1
+              pre_emption_capability: PREEMPT
+              pre_emption_vulnerability: NOT_PREEMPTABLE
+
+      metrics:
+        server:
+          - address: 0.0.0.0
+            port: 9090
+
+  wrapper.sh: |
+    #!/bin/bash   
+
+    # Internet APN
+    ip tuntap add name ogstun mode tun;
+    ip addr add 10.41.0.1/16 dev ogstun;
+    ip link set ogstun up;
+
+    # VoLTE APN
+    ip tuntap add name ogstun_volte mode tun;
+    ip addr add 10.42.0.1/16 dev ogstun_volte;
+    ip link set ogstun_volte up;
+
+    # Video Streaming APN
+    ip tuntap add name ogstun_video mode tun;
+    ip addr add 10.43.0.1/16 dev ogstun_video;
+    ip link set ogstun_video up;
+
+    # Gaming APN
+    ip tuntap add name ogstun_gaming mode tun;
+    ip addr add 10.44.0.1/16 dev ogstun_gaming;
+    ip link set ogstun_gaming up;
+
+    # IMS Signaling APN
+    ip tuntap add name ogstun_ims mode tun;
+    ip addr add 10.45.0.1/16 dev ogstun_ims;
+    ip link set ogstun_ims up;
+
+    # Enable packet forwarding
+    sysctl -w net.ipv6.conf.all.disable_ipv6=1;
+    echo 1 > /proc/sys/net/ipv4/ip_forward;
+
+    # NAT for external internet access
+    iptables -t nat -A POSTROUTING -s 10.41.0.0/16 ! -o ogstun -j MASQUERADE;
+    iptables -t nat -A POSTROUTING -s 10.42.0.0/16 ! -o ogstun_volte -j MASQUERADE;
+    iptables -t nat -A POSTROUTING -s 10.43.0.0/16 ! -o ogstun_video -j MASQUERADE;
+    iptables -t nat -A POSTROUTING -s 10.44.0.0/16 ! -o ogstun_gaming -j MASQUERADE;
+    iptables -t nat -A POSTROUTING -s 10.45.0.0/16 ! -o ogstun_ims -j MASQUERADE;
+
+    # Start Open5GS UPF
+    /open5gs/install/bin/open5gs-upfd -c /open5gs/config/upfcfg.yaml
+    # sleep 1000000
