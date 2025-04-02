@@ -1,0 +1,124 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smf1-configmap
+  labels:
+    app: open5gs
+    nf: smf
+    name: smf1
+data:
+  smfcfg.yaml: |
+    logger:
+      file: /open5gs/install/var/log/open5gs/smf.log
+
+    global:
+      max:
+        ue: 1024
+
+    smf:
+      sbi:
+        server:
+          - dev: eth0
+            advertise: smf1-nsmf
+            port: 80
+        client:
+          scp:
+            - uri: http://scp-nscp:80
+
+      pfcp:
+        server:
+          - dev: n4
+        client:
+          upf:
+            - address: 10.10.4.1
+              dnn: internet
+
+      gtpc:
+        server:
+          - dev: eth0
+      gtpu:
+        server:
+          - dev: n3
+      metrics:
+        server:
+          - address: 0.0.0.0
+            port: 9090
+
+      session:
+        - subnet: 10.41.0.1/16  # UE IP Allocation
+
+      dns:
+        - 8.8.8.8
+        - 8.8.4.4
+      mtu: 1400
+      ctf:
+        enabled: auto
+      freeDiameter: /open5gs/install/etc/freeDiameter/smf.conf
+
+      # QoS and DNN Configuration
+      dnn_list:
+        - dnn: internet
+          ambr:
+            uplink: 1Gbps
+            downlink: 1Gbps
+          qos_profile:
+            5qi: 9
+            arp:
+              priority_level: 15
+              pre_emption_capability: NOT_PREEMPT
+              pre_emption_vulnerability: PREEMPTABLE
+
+        - dnn: volte
+          ambr:
+            uplink: 64Kbps
+            downlink: 64Kbps
+          qos_profile:
+            5qi: 1
+            arp:
+              priority_level: 2
+              pre_emption_capability: PREEMPT
+              pre_emption_vulnerability: NOT_PREEMPTABLE
+
+        - dnn: video
+          ambr:
+            uplink: 5Mbps
+            downlink: 5Mbps
+          qos_profile:
+            5qi: 4
+            arp:
+              priority_level: 5
+              pre_emption_capability: PREEMPT
+              pre_emption_vulnerability: PREEMPTABLE
+
+        - dnn: gaming
+          ambr:
+            uplink: 10Mbps
+            downlink: 10Mbps
+          qos_profile:
+            5qi: 2
+            arp:
+              priority_level: 3
+              pre_emption_capability: PREEMPT
+              pre_emption_vulnerability: PREEMPTABLE
+
+        - dnn: ims
+          ambr:
+            uplink: 500Kbps
+            downlink: 500Kbps
+          qos_profile:
+            5qi: 5
+            arp:
+              priority_level: 1
+              pre_emption_capability: PREEMPT
+              pre_emption_vulnerability: NOT_PREEMPTABLE
+
+      info:
+        - s_nssai:
+          - sst: 1
+            sd: 000001
+            dnn:
+             - internet
+             - volte
+             - video
+             - gaming
+             - ims
